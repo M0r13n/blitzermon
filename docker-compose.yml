@@ -1,0 +1,64 @@
+version: "3.9"
+
+volumes:
+    prometheus_data: {}
+    grafana_data: {}
+
+services:
+  # Prometheus
+  # https://github.com/stefanprodan/dockprom
+  prometheus:
+    image: prom/prometheus:v2.37.0
+    container_name: prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - default
+    labels:
+      org.label-schema.group: "monitoring"
+
+  # Grafana
+  # https://github.com/stefanprodan/dockprom
+  grafana:
+    image: grafana/grafana:9.0.6
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_USER=${ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - default
+    labels:
+      org.label-schema.group: "monitoring"
+
+  blitzer_mon:
+    image: blitzer-mon:latest
+    volumes:
+      - './blitzer/:/root/blitzer/'
+    networks:
+      - default
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx-selfsigned.key:/etc/nginx/ssl/nginx-selfsigned.key
+      - ./nginx/nginx-selfsigned.crt:/etc/nginx/ssl/nginx-selfsigned.crt
+    ports:
+      - 80:80
+      - 443:443
+    networks:
+      - default
+    restart: unless-stopped
